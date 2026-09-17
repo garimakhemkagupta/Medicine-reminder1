@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple bell/alarm glyph used as the app's launcher icon foreground. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,80 C58,80 61,77 61,73 L47,73 C47,77 50,80 54,80 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,26 C40,26 32,37 32,50 L32,62 L26,68 L26,71 L82,71 L82,68 L76,62 L76,50 C76,37 68,26 54,26 Z" />
+</vector>
