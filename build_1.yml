@@ -30,11 +30,85 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      # Finds the folder that actually contains settings.gradle.kts, no
+      # matter how deep the uploaded files ended up nested (e.g. if the
+      # whole "android_app" folder got uploaded as a subfolder instead of
+      # its contents landing at the repo root).
+      - name: Locate Gradle project root
+        id: find
+        run: |
+          MATCH=$(find . -maxdepth 4 -name 'settings.gradle.kts' | head -n1)
+          if [ -z "$MATCH" ]; then
+            echo "Could not find settings.gradle.kts anywhere in this repo (searched 4 levels deep)."
+            find . -maxdepth 4 -type f
+            exit 1
+          fi
+          DIR=$(dirname "$MATCH")
+          echo "Found project at: $DIR"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
+      # Belt-and-suspenders: (re)write the support files this build needs
+      # directly, instead of trusting that every file made it through a
+      # manual mobile-browser upload into the right folder. Safe to run
+      # even if these already exist correctly - it just overwrites them
+      # with the same content.
+      - name: Ensure required support files exist
+        working-directory: ${{ steps.find.outputs.dir }}
+        run: |
+          cat > gradle.properties << 'EOF'
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          kotlin.code.style=official
+          EOF
+
+          mkdir -p app/src/main/res/values
+          cat > app/src/main/res/values/colors.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <color name="ic_launcher_background">#D32F2F</color>
+          </resources>
+          EOF
+
+          mkdir -p app/src/main/res/drawable
+          cat > app/src/main/res/drawable/ic_launcher_foreground.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="108dp"
+              android:height="108dp"
+              android:viewportWidth="108"
+              android:viewportHeight="108">
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M54,80 C58,80 61,77 61,73 L47,73 C47,77 50,80 54,80 Z" />
+              <path
+                  android:fillColor="#FFFFFF"
+                  android:pathData="M54,26 C40,26 32,37 32,50 L32,62 L26,68 L26,71 L82,71 L82,68 L76,62 L76,50 C76,37 68,26 54,26 Z" />
+          </vector>
+          EOF
+
+          mkdir -p app/src/main/res/mipmap-anydpi-v26
+          for f in ic_launcher ic_launcher_round; do
+            cat > app/src/main/res/mipmap-anydpi-v26/$f.xml << 'EOF'
+          <?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@color/ic_launcher_background" />
+              <foreground android:drawable="@drawable/ic_launcher_foreground" />
+          </adaptive-icon>
+          EOF
+          done
+
+          echo "Support files written."
+
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+        working-directory: ${{ steps.find.outputs.dir }}
+        run: >
+          gradle assembleDebug --stacktrace
+          -Pandroid.useAndroidX=true
+          -Pandroid.nonTransitiveRClass=true
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: medicine-reminder-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
