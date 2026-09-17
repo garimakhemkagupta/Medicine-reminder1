@@ -30,11 +30,29 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      # Finds the folder that actually contains settings.gradle.kts, no
+      # matter how deep the uploaded files ended up nested (e.g. if the
+      # whole "android_app" folder got uploaded as a subfolder instead of
+      # its contents landing at the repo root).
+      - name: Locate Gradle project root
+        id: find
+        run: |
+          MATCH=$(find . -maxdepth 4 -name 'settings.gradle.kts' | head -n1)
+          if [ -z "$MATCH" ]; then
+            echo "Could not find settings.gradle.kts anywhere in this repo (searched 4 levels deep)."
+            find . -maxdepth 4 -type f
+            exit 1
+          fi
+          DIR=$(dirname "$MATCH")
+          echo "Found project at: $DIR"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
       - name: Build debug APK
+        working-directory: ${{ steps.find.outputs.dir }}
         run: gradle assembleDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: medicine-reminder-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ steps.find.outputs.dir }}/app/build/outputs/apk/debug/app-debug.apk
